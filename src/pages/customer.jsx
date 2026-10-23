@@ -1,0 +1,61 @@
+import {useState} from 'react';import {Link,useNavigate,useParams} from 'react-router-dom';import {useApp} from '../store.jsx';import {MENU,CATS,WORKSHOPS,LOAVES,STATIONS} from '../data.js';import {Badge,Stepper,Tabs,Chips,F,rs,Head} from '../ui.jsx';
+export function Menu(){const {add,cart,count,sub,mode,setMode}=useApp(),[cat,setCat]=useState('All'),[q,setQ]=useState('');
+ const items=MENU.filter(m=>(cat=='All'||m.cat==cat)&&m.n.toLowerCase().includes(q.toLowerCase()));
+ return <div className="page col"><div><h1>Artisan menu</h1><p className="muted">Ordering from Table 4</p></div>
+ <Tabs tabs={['Dine-in','Takeaway']} v={mode} set={setMode}/><input className="input" placeholder="Search bread, coffee, pastries..." value={q} onChange={e=>setQ(e.target.value)}/>
+ <Chips items={['All',...CATS]} v={cat} set={setCat}/>
+ <div className="grid g2">{items.map(m=><div className="card col" key={m.id}><div className="tile">{m.e}</div><div><div className="row between"><h3>{m.n}</h3>{m.v&&<Badge c="green">Veg</Badge>}</div><p className="muted">{m.d}</p></div>
+ <div className="row between"><b>{rs(m.p)}</b>{cart[m.id]?<Stepper v={cart[m.id].q} on={d=>add(m.id,d)}/>:<button className="btn sm" onClick={()=>add(m.id,1)}>Add</button>}</div></div>)}</div>
+ {count>0&&<div className="cartbar"><div><b>{count} items · {rs(sub)}</b><div className="muted" style={{color:'#d9c7bd'}}>Table 4</div></div><Link className="btn o" to="/cart">View cart</Link></div>}</div>}
+export function Cart(){const {lines,add,note,sub,mode,place,setCart}=useApp(),nav=useNavigate(),[pay,setPay]=useState('Pay Online'),tax=Math.round(sub*.05);
+ if(!lines.length)return <div className="page col"><h1>Your cart</h1><p className="muted">Nothing here yet.</p><Link className="btn" to="/menu">Browse menu</Link></div>;
+ return <div className="page col"><Link to="/menu" className="muted">← Back to menu</Link><h1>Your cart</h1><Badge c="brown">{mode=='Dine-in'?'Dine-in · Table 4':'Takeaway'}</Badge>
+ {lines.map(l=><div className="card col" key={l.id}><div className="row"><span style={{fontSize:30}}>{l.e}</span><div className="grow"><b>{l.n}</b><div className="muted">{rs(l.p)}</div></div><Stepper v={l.q} on={d=>add(l.id,d)}/></div>
+ <div className="row"><input className="input" placeholder="Add a note, e.g. Extra hot" value={l.note||''} onChange={e=>note(l.id,e.target.value)}/><button className="btn red sm" onClick={()=>add(l.id,-l.q)}>Remove</button></div></div>)}
+ <div className="card col"><div className="row between"><span>Subtotal</span><span>{rs(sub)}</span></div><div className="row between"><span>Taxes</span><span>{rs(tax)}</span></div><div className="row between"><b>Total</b><b>{rs(sub+tax)}</b></div></div>
+ <Tabs tabs={['Pay Online','Pay at Counter']} v={pay} set={setPay}/><p className="muted">Bakery and beverage items may be prepared at different stations.</p>
+ <button className="btn o full" onClick={()=>{const id=place(lines,mode=='Dine-in'?'Table 4':'Takeaway #14','QR');setCart({});nav('/orders/'+id)}}>Place order</button></div>}
+export function Track(){const {id}=useParams(),{tickets}=useApp(),ts=tickets.filter(t=>t.order==id),steps=['QUEUED','PREPARING','READY'];
+ const done=ts.length&&ts.every(t=>['READY','SERVED'].includes(t.status));
+ return <div className="page col"><h1>Order #{id}</h1><p className="muted">Table 4</p>
+ <div className={'card '+(done?'pulse':'')}><h3>{done?'Your order is ready!':'Your order is being prepared.'}</h3>{done&&<p style={{color:'var(--green)'}}>You earned 20 community points.</p>}</div>
+ {ts.map(t=>{const i=Math.min(steps.indexOf(t.status),2);return <div className="card col" key={t.id}><b>{STATIONS[t.st]}</b>{t.items.map((x,k)=><div key={k}>{x.q} × {x.n}</div>)}
+ <div className="bar"><i style={{width:(i+1)*33.3+'%',background:i==2?'var(--green)':'var(--orange)',transition:'width .6s'}}/></div><div className="row between muted">{steps.map((s,k)=><span key={s} style={{color:k<=i?'var(--brown)':'',fontWeight:k==i?600:400}}>{s[0]+s.slice(1).toLowerCase()}</span>)}</div></div>})}
+ {!ts.length&&<p className="muted">No tickets found for this order.</p>}<Link className="btn full" to="/menu">Reorder</Link></div>}
+export function Bread(){const {subs,setSubs,toast}=useApp(),[tab,setTab]=useState('Subscription'),[loaf,setLoaf]=useState(LOAVES[0]),[q,setQ]=useState(1),[freq,setFreq]=useState('Weekly'),[day,setDay]=useState('Sunday');
+ const upd=(id,p)=>setSubs(s=>s.map(x=>x.id==id?{...x,...p}:x));
+ return <div className="page col"><h1>Bread</h1><Tabs tabs={['Subscription','One-off pre-order']} v={tab} set={setTab}/>
+ <div className="card col"><F l="Loaf"><select className="input" value={loaf} onChange={e=>setLoaf(e.target.value)}>{LOAVES.map(l=><option key={l}>{l}</option>)}</select></F>
+ <div className="row between"><span>Quantity</span><Stepper v={q} on={d=>setQ(Math.max(1,q+d))}/></div>
+ {tab=='Subscription'?<><F l="Frequency"><select className="input" value={freq} onChange={e=>setFreq(e.target.value)}><option>Weekly</option><option>Every 2 Weeks</option></select></F><F l="Pickup day"><select className="input" value={day} onChange={e=>setDay(e.target.value)}>{['Saturday','Sunday','Monday'].map(d=><option key={d}>{d}</option>)}</select></F><F l="Start date" type="date"/></>:<><F l="Pickup date" type="date"/><F l="Pickup time" type="time"/></>}
+ <p className="muted">Pre-orders require 48 hours notice.</p>
+ <button className="btn o" onClick={()=>{tab=='Subscription'?setSubs(s=>[...s,{id:Date.now(),loaf,freq,day,status:'ACTIVE'}]):0;toast(tab=='Subscription'?'Subscription started':'Pre-order placed')}}>{tab=='Subscription'?'Start subscription':'Place pre-order'}</button></div>
+ <h2>My subscriptions</h2>{subs.map(s=><div className="card col" key={s.id}><div className="row between"><b>{s.loaf}</b><Badge c={s.status=='ACTIVE'?'green':'amber'}>{s.status}</Badge></div><p className="muted">{s.freq} · Next pickup: {s.day}</p>
+ <div className="row wrap">{s.status=='ACTIVE'?<button className="btn ghost sm" onClick={()=>upd(s.id,{status:'PAUSED'})}>Pause</button>:<button className="btn g sm" onClick={()=>upd(s.id,{status:'ACTIVE'})}>Resume</button>}<button className="btn ghost sm" onClick={()=>toast('Next pickup skipped')}>Skip next</button><button className="btn red sm" onClick={()=>setSubs(a=>a.filter(x=>x.id!=s.id))}>Cancel</button></div></div>)}</div>}
+export function Workshops(){const [c,setC]=useState('All'),nav=useNavigate();
+ const lab={open:'Book seat',full:'Join waitlist',vip:'VIP early access',locked:'Opens in 22 hours'};
+ return <div className="page col"><h1>Workshops & experiences</h1><Chips items={['All','Baking','Coffee','Art','Music']} v={c} set={setC}/>
+ {WORKSHOPS.filter(w=>c=='All'||w.cat==c).map(w=><div key={w.slug} className="card row" style={{cursor:'pointer'}} onClick={()=>nav('/workshops/'+w.slug)}><div className="tile" style={{width:84,height:84,fontSize:34}}>{w.e}</div>
+ <div className="grow"><h3>{w.t}</h3><p className="muted">{w.date} · {w.time} · {rs(w.price)}</p><p style={{fontSize:13}}>{w.mode=='full'?<Badge c="red">Full</Badge>:w.mode=='vip'?<Badge c="amber">Artisan VIP early access</Badge>:w.mode=='locked'?<span className="muted">Public booking opens in 22 hours.</span>:`${w.seats-w.booked} of ${w.seats} seats left`}</p></div><Badge c={w.mode=='full'?'grey':'brown'}>{lab[w.mode]}</Badge></div>)}</div>}
+export function WorkshopDetail(){const {slug}=useParams(),w=WORKSHOPS.find(x=>x.slug==slug)||WORKSHOPS[0],{ws,wsSet}=useApp(),s=ws[w.slug]||'none',full=w.mode=='full',booked=w.booked+(s=='confirmed'||s=='promoted'?1:0);
+ return <div className="page col"><Link to="/workshops" className="muted">← Back to workshops</Link><div className="tile" style={{height:170,fontSize:70}}>{w.e}</div><h1>{w.t}</h1>
+ <p className="muted">{w.date} · {w.time} · 3 hours · Alterro Bakehouse, Indore · Hosted by Chef Marcus</p><p>Shape, proof and bake your own sourdough loaf, guided by our head baker. Take home your loaf and a jar of levain.</p>
+ <div className="card col"><div className="row between"><b>{booked} / {w.seats} booked</b><b>{rs(w.price)}</b></div><div className="bar"><i style={{width:booked/w.seats*100+'%'}}/></div><p className="muted">Includes ingredients, apron, tasting and take-home loaf. Full refund when cancelled more than 48 hours before the workshop.</p></div>
+ {s=='none'&&<button className="btn o full" onClick={()=>wsSet(w.slug,full?'waitlisted':'confirmed')}>{full?'Join waitlist':'Book my seat'}</button>}
+ {(s=='confirmed')&&<div className="card col"><Badge c="green">Booking confirmed</Badge><button className="btn red" onClick={()=>wsSet(w.slug,'none')}>Cancel booking</button></div>}
+ {s=='waitlisted'&&<div className="card col"><Badge c="amber">You are #2 on the waitlist.</Badge><button className="btn ghost" onClick={()=>wsSet(w.slug,'promoted')}>Demo: a seat opens up</button><button className="btn red" onClick={()=>wsSet(w.slug,'none')}>Leave waitlist</button></div>}
+ {s=='promoted'&&<div className="card pulse col"><Badge c="green">A seat opened up — you're in!</Badge><button className="btn red" onClick={()=>wsSet(w.slug,'none')}>Cancel booking</button></div>}</div>}
+function QR({v}){const c=[...Array(121)].map((_,i)=>(v.charCodeAt(i%v.length)*(i+7))%3>0);return <svg width="110" height="110" viewBox="0 0 11 11">{c.map((on,i)=>on&&<rect key={i} x={i%11} y={Math.floor(i/11)} width="1" height="1" fill="#4E342E"/>)}</svg>}
+export function Community(){const {toast}=useApp(),code='ALT-ANNA24';
+ return <div className="page col"><h1>Alterro community</h1><div className="card row wrap"><div className="grow col" style={{gap:6}}><span className="muted">Your referral code</span><h2>{code}</h2><div className="row wrap"><button className="btn sm" onClick={()=>{navigator.clipboard?.writeText(code);toast('Code copied')}}>Copy</button><button className="btn ghost sm" onClick={()=>toast('Share sheet opened')}>Share</button><a className="btn g sm" href={'https://wa.me/?text=Join me at Alterro with '+code} target="_blank">WhatsApp</a></div></div><QR v={code}/></div>
+ <div className="grid g3">{[['Friends referred',6],['Orders from friends',31],['Community points',640]].map(([l,v])=><div className="card" key={l}><h2>{v}</h2><span className="muted">{l}</span></div>)}</div>
+ <div className="card col"><div className="row between"><b>Community Insider</b><span className="muted">360 more points to Artisan VIP</span></div><div className="bar"><i style={{width:64+'%'}}/></div></div>
+ <div className="card col"><h3>Your perks</h3>{[['Secret menu access',1],['24-hour workshop early access',1],["Baker's tasting",0]].map(([p,u])=><div className="row between" key={p}><span>{p}</span><Badge c={u?'green':'grey'}>{u?'Unlocked':'Artisan VIP'}</Badge></div>)}</div>
+ <div className="card col"><h3>Friends you brought in</h3>{['Rohan','Meera','Kabir','Sana','Dev','Tara'].map(n=><div className="row between" key={n}><span>{n}</span><span className="muted">Joined 2026</span></div>)}</div></div>}
+export function Profile(){const {user,setUser,subs,ws}=useApp(),nav=useNavigate(),[t,setT]=useState('Orders');
+ return <div className="page col"><div><h1>{user?.name||'Anna'}</h1><p className="muted">+91 98765 43210 · <Badge c="amber">Community Insider</Badge></p></div><Tabs tabs={['Orders','Subscriptions','Workshops','Notifications']} v={t} set={setT}/>
+ {t=='Orders'&&[['A096','21 Oct',rs(560)],['A071','18 Oct',rs(420)]].map(([id,d,a])=><div className="card row between" key={id}><div><b>#{id}</b><div className="muted">{d} · {a}</div></div><Badge c="green">Served</Badge><Link className="btn sm ghost" to="/menu">Reorder</Link></div>)}
+ {t=='Subscriptions'&&subs.map(s=><div className="card row between" key={s.id}><div><b>{s.loaf}</b><div className="muted">Next pickup: {s.day}</div></div><Link className="btn sm ghost" to="/bread">Manage</Link></div>)}
+ {t=='Workshops'&&<div className="card row between"><div><b>Sourdough Masterclass</b><div className="muted">Sat 1 Nov</div></div><Badge c="green">{ws['sourdough-masterclass']||'confirmed'}</Badge></div>}
+ {t=='Notifications'&&['A seat opened up in Sourdough Masterclass. You\'re confirmed.','Your Sunday sourdough is ready for pickup.'].map(n=><div className="card" key={n}>{n}</div>)}
+ <button className="btn ghost" onClick={()=>{setUser(null);nav('/login')}}>Log out</button></div>}

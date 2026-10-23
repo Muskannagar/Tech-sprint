@@ -1,0 +1,20 @@
+import {useState} from 'react';import {Link,useNavigate,useParams} from 'react-router-dom';import {useApp} from '../store.jsx';import {MENU,CATS,TABLES,STATIONS} from '../data.js';import {Badge,Stepper,Chips,rs} from '../ui.jsx';
+const mins=t=>Math.max(0,Math.floor((Date.now()-t)/60000));
+export function Floor(){const {tickets}=useApp(),nav=useNavigate(),[z,setZ]=useState('All');
+ const info=n=>{const ts=tickets.filter(t=>t.table=='Table '+n&&t.status!='SERVED');const r=ts.find(t=>t.status=='READY');return r?{s:'green',l:'Item ready',x:STATIONS[r.st],ts}:ts.length?{s:'amber',l:'In kitchen',x:'Preparing',ts}:{s:'',l:'Vacant',ts}};
+ const vacant=TABLES.find(t=>!info(t.n).ts.length)?.n||1;
+ return <div className="page col"><h1>Floor</h1><Chips items={['All','Indoor','Patio']} v={z} set={setZ}/>
+ <div className="grid g2">{TABLES.filter(t=>z=='All'||t.zone==z).map(t=>{const i=info(t.n);return <div key={t.n} className={'card tbl col '+i.s} onClick={()=>nav('/waiter/order/'+t.n)}><div className="row between"><h3>Table {t.n}</h3><Badge c={i.s||'grey'}>{i.l}</Badge></div><span className="muted">{t.seats} seats · {t.zone}</span>{i.ts[0]&&<span style={{fontSize:13}}>{i.x} · {mins(i.ts[0].ts)} min</span>}</div>})}</div>
+ <button className="btn o" style={{position:'fixed',right:18,bottom:84,zIndex:25}} onClick={()=>nav('/waiter/order/'+vacant)}>+ New walk-in order</button></div>}
+export function OrderPad(){const {t}=useParams(),nav=useNavigate(),{place,toast}=useApp(),[cat,setCat]=useState('All'),[q,setQ]=useState(''),[g,setG]=useState(2),[o,setO]=useState({});
+ const lines=Object.entries(o).map(([id,v])=>({...MENU.find(m=>m.id==id),...v})),tot=lines.reduce((a,l)=>a+l.q*l.p,0);
+ const add=(id,d)=>setO(x=>{const n={...x},q=Math.max(0,(n[id]?.q||0)+d);q?n[id]={...n[id],q}:delete n[id];return n});
+ return <div className="page col"><Link to="/waiter/floor" className="muted">← Floor</Link><div className="row between"><h1>Table {t}</h1><div className="row"><span className="muted">Guests</span><Stepper v={g} on={d=>setG(Math.max(1,g+d))}/></div></div>
+ <input className="input" placeholder="Search products" value={q} onChange={e=>setQ(e.target.value)}/><Chips items={['All',...CATS]} v={cat} set={setCat}/>
+ <div className="grid g2">{MENU.filter(m=>(cat=='All'||m.cat==cat)&&m.n.toLowerCase().includes(q.toLowerCase())).map(m=><div key={m.id} className="card col"><b>{m.n}</b><span className="muted">{rs(m.p)} · {STATIONS[m.st]}</span><button className="btn ghost sm" onClick={()=>add(m.id,1)}>Add</button></div>)}</div>
+ {lines.length>0&&<div className="card col"><h3>Current order</h3>{lines.map(l=><div key={l.id} className="col" style={{gap:6}}><div className="row between"><div><b>{l.n} × {l.q}</b><div className="muted">{STATIONS[l.st]}</div></div><Stepper v={l.q} on={d=>add(l.id,d)}/></div><input className="input" placeholder="Note" onChange={e=>setO(x=>({...x,[l.id]:{...x[l.id],note:e.target.value}}))}/></div>)}
+ <div className="row between"><b>Total</b><b>{rs(tot)}</b></div><button className="btn o" onClick={()=>{place(lines,'Table '+t,'Waiter');toast('Order sent successfully');nav('/waiter/floor')}}>Send to kitchen</button></div>}</div>}
+export function Pickups(){const {tickets,advance}=useApp(),r=tickets.filter(t=>t.status=='READY');
+ return <div className="page col"><h1>Ready for pickup</h1>{!r.length&&<div className="card"><b>All caught up.</b></div>}
+ {r.map(t=><div className="card col pulse" key={t.id}><div className="row between"><Badge c="brown">{t.table}</Badge><span className="muted">Ready {mins(t.ts)} min ago</span></div>{t.items.map((x,i)=><h3 key={i}>{x.q} × {x.n}</h3>)}<span className="muted">{STATIONS[t.st]}</span><button className="btn g" onClick={()=>advance(t.id)}>Mark served</button></div>)}</div>}
+export function WProfile(){const {setUser}=useApp(),nav=useNavigate();return <div className="page col"><h1>Alex R.</h1><p className="muted">Role: Waiter</p><button className="btn ghost" onClick={()=>{setUser(null);nav('/login')}}>Log out</button></div>}

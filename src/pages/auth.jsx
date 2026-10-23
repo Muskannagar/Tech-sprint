@@ -1,0 +1,9 @@
+import {useState} from 'react';import {Link,useNavigate} from 'react-router-dom';import {useApp,HOME,roleOf} from '../store.jsx';import {F} from '../ui.jsx';
+const Shell=({title,children,onSubmit})=><div className="auth"><div className="vis"><div>🥖<h1 style={{color:'#fff',marginTop:10}}>Alterro</h1><p style={{fontSize:15,opacity:.8}}>Bakehouse & Café, Indore</p></div></div><form onSubmit={onSubmit}><h1>{title}</h1>{children}</form></div>;
+export function Login(){const {setUser}=useApp(),nav=useNavigate(),[id,setId]=useState(''),[pw,setPw]=useState(''),[show,setShow]=useState(false);
+ const go=e=>{e.preventDefault();const role=roleOf(id);setUser({name:id.split('@')[0]||'Anna',role});nav(HOME[role])};
+ return <Shell title="Welcome back" onSubmit={go}><F l="Email or phone" value={id} onChange={e=>setId(e.target.value)} required/><F l="Password" type={show?'text':'password'} value={pw} onChange={e=>setPw(e.target.value)} required/>
+ <label className="row muted"><input type="checkbox" onChange={e=>setShow(e.target.checked)}/>Show password</label><button className="btn full">Log in</button>
+ <p className="muted">New here? <Link to="/register" style={{color:'var(--orange)'}}>Sign up</Link></p><p className="muted">Prototype tip: include “waiter”, “kitchen” or “admin” in the email to open that interface.</p></Shell>}
+export function Register(){const {setUser}=useApp(),nav=useNavigate();
+ return <Shell title="Join the community" onSubmit={e=>{e.preventDefault();setUser({name:'Anna',role:'customer'});nav('/menu')}}><F l="Full name" required/><F l="Phone" required/><F l="Email" type="email" required/><F l="Password" type="password" required/><F l="Confirm password" type="password" required/><F l="Referral code (optional)" placeholder="ALT-ANNA24"/><button className="btn full">Create account</button><p className="muted">Already have an account? <Link to="/login" style={{color:'var(--orange)'}}>Log in</Link></p></Shell>}
